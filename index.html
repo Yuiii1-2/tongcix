@@ -40,16 +40,14 @@
   .code-big { font-size:44px; font-weight:800; letter-spacing:10px; margin:14px 0; color:#ffd166; }
   .status { font-size:14px; opacity:.85; min-height:22px; margin:8px 0; }
   .vs { display:flex; justify-content:space-between; gap:10px; margin-bottom:16px; }
-  .player {
-    flex:1; background:rgba(255,255,255,.15); border-radius:16px; padding:12px 6px;
-  }
-  .player .name { font-size:14px; opacity:.9; margin-bottom:4px; word-break:break-all; }
-  .player .score { font-size:28px; font-weight:800; color:#ffd166; }
+  .player { flex:1; background:rgba(255,255,255,.15); border-radius:16px; padding:12px 6px; }
+  .player .name { font-size:14px; font-weight:700; word-break:break-all; }
   .round-tag { font-size:13px; opacity:.8; margin-bottom:12px; }
   .category {
-    background:rgba(255,255,255,.2); border-radius:18px; padding:22px 14px;
-    font-size:20px; font-weight:700; margin-bottom:18px; line-height:1.5;
+    background:rgba(255,255,255,.2); border-radius:18px; padding:20px 14px;
+    font-size:17px; font-weight:600; margin-bottom:18px; line-height:1.6;
   }
+  .category b { color:#ffd166; }
   .reveal-box { display:flex; gap:10px; justify-content:center; margin:16px 0; }
   .word-chip {
     flex:1; max-width:160px; background:rgba(255,255,255,.9); color:#333;
@@ -62,6 +60,12 @@
   @keyframes floatUp { to { transform: translateY(-120px) scale(1.6); opacity:0; } }
   .hidden { display:none !important; }
   .small { font-size:12px; opacity:.7; margin-top:14px; line-height:1.6; }
+  .history {
+    max-height:220px; overflow-y:auto; text-align:left; font-size:14px;
+    background:rgba(0,0,0,.18); border-radius:14px; padding:12px 14px; margin-bottom:16px; line-height:2;
+  }
+  .history .miss { opacity:.85; }
+  .history .hit { color:#7CFF9B; font-weight:700; }
 </style>
 <base target="_blank">
 </head>
@@ -71,13 +75,13 @@
   <!-- 首页 -->
   <div id="screen-home" class="screen active">
     <h1>🎯 同词相遇</h1>
-    <p class="sub">和朋友同时说出同一个词，考验你们的默契！</p>
+    <p class="sub">和朋友轮流想词，直到想到同一个词！</p>
     <input id="nameInput" maxlength="10" placeholder="输入你的昵称">
     <button class="btn-primary" onclick="createRoom()">创建房间</button>
     <div class="divider">────── 或 ──────</div>
     <input id="codeInput" maxlength="6" inputmode="numeric" placeholder="输入朋友给的6位房间号">
     <button class="btn-ghost" onclick="joinRoom()">加入房间</button>
-    <p class="small">本站通过 P2P 点对点直连，无需服务器，房间号即连接密码，建议 10 分钟内使用。</p>
+    <p class="small">本站通过 P2P 点对点直连，无需服务器，房间号即连接密码，建议 10 分钟内使用。<br>玩法：第一轮随便想一个词，之后每轮根据上一轮两个词的共性想新词，直到两人想到同一个词！</p>
   </div>
 
   <!-- 等待/大厅 -->
@@ -93,13 +97,13 @@
   <!-- 游戏 -->
   <div id="screen-game" class="screen">
     <div class="vs">
-      <div class="player"><div class="name" id="myNameTag">你</div><div class="score" id="myScore">0</div></div>
-      <div class="player"><div class="name" id="peerNameTag">对方</div><div class="score" id="peerScore">0</div></div>
+      <div class="player"><div class="name" id="myNameTag">你</div></div>
+      <div class="player"><div class="name" id="peerNameTag">对方</div></div>
     </div>
     <p class="round-tag" id="roundTag">第 1 轮</p>
-    <div class="category" id="categoryBox">…</div>
+    <div class="category" id="hintBox">💡 随便想一个词开始吧！</div>
     <div id="inputArea">
-      <input id="answerInput" maxlength="12" placeholder="心里想的词，别让对方看到！">
+      <input id="answerInput" maxlength="12" placeholder="心里想的词，别让对方看到！" autocomplete="off">
       <button class="btn-primary" id="submitBtn" onclick="submitAnswer()">锁定答案 🔒</button>
       <p class="status" id="gameStatus"></p>
     </div>
@@ -109,29 +113,36 @@
         <div class="word-chip" id="peerWord">?</div>
       </div>
       <p class="match-tip" id="matchTip"></p>
-      <button class="btn-primary" id="nextBtn" onclick="nextRound()">下一轮 ▶</button>
+      <button class="btn-primary" id="nextBtn" onclick="onNextClick()">继续想词 ▶</button>
     </div>
+  </div>
+
+  <!-- 结算 -->
+  <div id="screen-end" class="screen">
+    <h1>🎉 同词相遇！</h1>
+    <p class="sub" id="endStats"></p>
+    <div class="history" id="historyBox"></div>
+    <button class="btn-primary" onclick="restart()">再来一局 🔁</button>
+    <button class="btn-ghost" onclick="location.reload()">返回首页 🏠</button>
   </div>
 
 </div>
 
 <script>
-const CATS = ["说一种水果","说一个中国城市","说一个超级英雄","用一种动物形容对方","说一件周末想做的事","说一种零食","说一门学科","说一个手机品牌","说一种运动","说一个动漫角色","说一种饮料","说一个想去的旅游景点","说一种天气","说一个职业","说一种颜色","说一个电子游戏","说一种花","说一个常用 App","说一种交通工具","说一道爱吃的菜","说一个传统节日","说一种乐器","说一个明星","说一种鞋子类型"];
-const PREFIX = "tongci-game-v1-";
+const PREFIX = "tongci-game-v2-";
 
 let peer=null, conn=null, isHost=false, myCode="";
 let myName="", peerName="";
 let myAnswer="", peerAnswer="";
-let round=0, myScore=0, peerScore=0, playing=false;
+let round=0, misses=0, playing=false;
+let matched=false, awaitingNext=false;
+let myHist=[], peerHist=[];
 
 function $(id){ return document.getElementById(id); }
 function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active")); $(id).classList.add("active"); }
-function pickCat(){ return CATS[Math.floor(Math.random()*CATS.length)]; }
 function norm(w){ return w.trim().toLowerCase().replace(/\s+/g,""); }
 
-function getMyName(){
-  myName = $("nameInput").value.trim() || "神秘人";
-}
+function getMyName(){ myName = $("nameInput").value.trim() || "神秘人"; }
 
 /* ---------- 创建房间（房主） ---------- */
 function createRoom(){
@@ -159,7 +170,7 @@ function createRoom(){
     });
   });
   peer.on("error", err => {
-    if(err.type === "unavailable-id"){ createRoom(); } // 房间号撞了，换一个
+    if(err.type === "unavailable-id"){ createRoom(); }
     else $("lobbyStatus").textContent = "连接出错：" + err.type;
   });
 }
@@ -176,7 +187,6 @@ function joinRoom(){
   $("lobbyStatus").textContent = "连接中…";
   show("screen-lobby");
   peer = new Peer();
-  wireConnEvents();
   peer.on("open", ()=>{
     conn = peer.connect(PREFIX + code);
     wireConn();
@@ -195,7 +205,6 @@ function wireConn(){
     location.reload();
   });
 }
-function wireConnEvents(){}
 function send(obj){ if(conn && conn.open) conn.send(obj); }
 
 function copyCode(){
@@ -209,39 +218,46 @@ function onData(d){
     $("lobbyStatus").textContent = "已加入 " + peerName + " 的房间，等 TA 开始～";
     $("lobbyTitle").textContent = "🏠 已加入房间";
   }
-  else if(d.t === "start"){ beginRound(d.category); }
+  else if(d.t === "start"){ beginRound(); }
   else if(d.t === "answer"){ peerAnswer = d.word; maybeReveal(); }
-  else if(d.t === "next"){ if(d.round > round) beginRound(d.category); }
+  else if(d.t === "next"){ if(awaitingNext && !matched) beginRound(); }
+  else if(d.t === "restart"){ doRestart(); }
 }
 
 /* ---------- 游戏流程 ---------- */
 function startGame(){
-  const cat = pickCat();
-  send({t:"start", category: cat});
-  beginRound(cat);   // 修复：房主自己也要进入游戏页面
+  send({t:"start"});
+  beginRound();
 }
 
-function beginRound(category){
+function beginRound(){
   playing = true; round++;
-  myAnswer=""; peerAnswer="";
+  matched = false; awaitingNext = false;
+  myAnswer = ""; peerAnswer = "";
   $("myNameTag").textContent = "你·" + myName;
   $("peerNameTag").textContent = peerName || "对方";
-  $("myScore").textContent = myScore;
-  $("peerScore").textContent = peerScore;
   $("roundTag").textContent = "第 " + round + " 轮";
-  $("categoryBox").textContent = "👉 " + category;
-  $("answerInput").value=""; $("answerInput").disabled=false;
-  $("submitBtn").disabled=false;
-  $("gameStatus").textContent=""; $("gameStatus").className="status";
-  $("matchTip").textContent=""; $("matchTip").className="match-tip";
+  if(round === 1){
+    $("hintBox").innerHTML = "💡 随便想一个词，输入后锁定！<br><small>之后每轮要根据上一轮两个词的共性想新词哦</small>";
+  } else {
+    const a = myHist[myHist.length-1], b = peerHist[peerHist.length-1];
+    $("hintBox").innerHTML = "🔁 上一轮的词：<b>「" + esc(a) + "」</b> 和 <b>「" + esc(b) + "」</b><br><small>想想它们的共性，输入一个相关的词</small>";
+  }
+  $("answerInput").value = ""; $("answerInput").disabled = false;
+  $("submitBtn").disabled = false;
+  $("gameStatus").textContent = "";
+  $("matchTip").textContent = ""; $("matchTip").className = "match-tip";
+  $("nextBtn").textContent = "继续想词 ▶";
   $("inputArea").classList.remove("hidden");
   $("revealArea").classList.add("hidden");
   show("screen-game");
 }
 
+function esc(s){ const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+
 function submitAnswer(){
   const w = $("answerInput").value;
-  if(!norm(w)){ $("gameStatus").textContent="先写一个词再锁定哦"; return; }
+  if(!norm(w)){ $("gameStatus").textContent = "先写一个词再锁定哦"; return; }
   myAnswer = w.trim();
   $("answerInput").disabled = true; $("submitBtn").disabled = true;
   send({t:"answer", word:myAnswer});
@@ -251,6 +267,7 @@ function submitAnswer(){
 function maybeReveal(){ if(myAnswer !== "") reveal(); }
 
 function reveal(){
+  myHist.push(myAnswer); peerHist.push(peerAnswer);
   $("inputArea").classList.add("hidden");
   $("revealArea").classList.remove("hidden");
   $("myWord").textContent = myAnswer;
@@ -258,23 +275,51 @@ function reveal(){
   const ok = norm(myAnswer) === norm(peerAnswer);
   const tip = $("matchTip");
   if(ok){
-    myScore++; peerScore++;
-    $("myScore").textContent = myScore; $("peerScore").textContent = peerScore;
-    tip.textContent = "🎉 同词相遇！默契 +1";
+    matched = true;
+    tip.textContent = "🎉 同词相遇！";
     tip.className = "match-tip win";
+    $("nextBtn").textContent = "查看结算 🏁";
     burst();
   } else {
-    tip.textContent = "💔 没碰到，再试试！";
+    misses++;
+    awaitingNext = true;
+    tip.textContent = "💔 第 " + misses + " 次擦肩而过";
     tip.className = "match-tip lose";
   }
 }
 
-function nextRound(){
-  // 谁先点谁出题：本地立即进下一轮，同时把类别发给对方；
-  // 对方收到的 next.round 若小于等于当前轮数则忽略，保证双方严格同步
-  const cat = pickCat();
-  send({t:"next", round: round+1, category: cat});
-  beginRound(cat);
+function onNextClick(){
+  if(matched){ showEnd(); return; }
+  if(!awaitingNext) return;   // 防重复点击/防双方同时点的消息冲突
+  send({t:"next"});
+  beginRound();
+}
+
+/* ---------- 结算 ---------- */
+function showEnd(){
+  $("endStats").innerHTML = "你们用了 <b style='color:#ffd166'>" + round + "</b> 轮才想到同一个词「<b style='color:#ffd166'>" + esc(myAnswer) + "」<br>期间 <b style='color:#ffb3c1'>" + misses + "</b> 次擦肩而过 💨";
+  let html = "";
+  for(let i=0; i<myHist.length; i++){
+    if(i === myHist.length-1){
+      html += "<div class='hit'>第" + (i+1) + "轮：「" + esc(myHist[i]) + "」🎉 相遇！</div>";
+    } else {
+      html += "<div class='miss'>第" + (i+1) + "轮：「" + esc(myHist[i]) + "」 vs 「" + esc(peerHist[i]) + "」</div>";
+    }
+  }
+  $("historyBox").innerHTML = html;
+  show("screen-end");
+  burst();
+}
+
+function restart(){
+  send({t:"restart"});
+  doRestart();
+}
+function doRestart(){
+  round = 0; misses = 0;
+  myHist = []; peerHist = [];
+  matched = false; awaitingNext = false;
+  beginRound();
 }
 
 function burst(){
